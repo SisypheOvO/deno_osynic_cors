@@ -59,11 +59,11 @@ The server will return the following errors:
 
 ## Deployment Instructions
 
-### Deploying on Deno Deploy
+### Deploying on Vercel
 
-1. Create a Deno Deploy project
-2. Upload this code or connect to your GitHub repository
-3. After deployment, you'll receive a `*.deno.dev` domain
+1. Import this repository in Vercel
+2. Set the `WEBAPP_URLS` environment variable, separating multiple URLs with commas
+3. After deployment, the whole site acts as the proxy entry without a custom server
 
 ### Local Development
 
@@ -127,7 +127,7 @@ WEBAPP_URLS=http://localhost:5173,https://yourdomain.com
 
 ### Configure Origin Whitelist
 
-When deploying to Deno Deploy, the system automatically reads the `WEBAPP_URLS` from the `.env` file to configure the whitelist. To manually configure, you can edit the `ALLOWED_ORIGINS` in `proxy_server.ts` or `deploy.ts`:
+When deploying to Vercel, the system reads the `WEBAPP_URLS` environment variable to configure the whitelist. To manually configure, you can edit `ALLOWED_ORIGINS` in `api/proxy.ts`, `proxy_server.ts`, or `deploy.ts`:
 
 ```typescript
 // Development environment: allow all origins

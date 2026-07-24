@@ -59,11 +59,11 @@ https://osynic-cors.deno.dev/https://osu.ppy.sh/api/get_beatmaps?k=您的API密�
 
 ## 部署说明
 
-### 在 Deno Deploy 上部署
+### 在 Vercel 上部署
 
-1. 创建一个 Deno Deploy 项目
-2. 上传此代码或连接到您的 GitHub 代码库
-3. 部署完成后，您将获得一个 `*.deno.dev` 的域名
+1. 在 Vercel 中导入此仓库
+2. 设置环境变量 `WEBAPP_URLS`，多个地址用逗号分隔
+3. 部署后，整个站点会作为代理入口工作，不需要自定义服务器
 
 ### 本地开发
 
@@ -127,7 +127,7 @@ WEBAPP_URLS=http://localhost:5173,https://yourdomain.com
 
 ### 配置源站白名单
 
-在部署到 Deno Deploy 时，系统会自动读取 `.env` 文件中的 `WEBAPP_URLS` 来配置白名单。如需手动配置，可在 `proxy_server.ts` 或 `deploy.ts` 中修改 `ALLOWED_ORIGINS`：
+在部署到 Vercel 时，系统会读取环境变量 `WEBAPP_URLS` 来配置白名单。如需手动配置，可在 `api/proxy.ts`、`proxy_server.ts` 或 `deploy.ts` 中修改 `ALLOWED_ORIGINS`：
 
 ```typescript
 // 开发环境：允许所有源站
