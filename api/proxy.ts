@@ -10,13 +10,22 @@ function resolveAllowOrigin(origin: string) {
   return allowedOrigins.includes(origin) ? origin : ""
 }
 
-function corsHeaders(allowOrigin: string) {
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
+function corsHeaders(allowOrigin: string, requestedHeaders?: string) {
+  const headers: Record<string, string> = {
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "*",
+    "Access-Control-Allow-Headers": requestedHeaders || "Authorization, Content-Type",
     "Access-Control-Max-Age": "86400",
     "X-Proxied-By": "Vercel CORS Proxy",
+  }
+  if (allowOrigin) {
+    headers["Access-Control-Allow-Origin"] = allowOrigin
+  }
+  return headers
+}
+
+function applyHeaders(res: any, headers: Record<string, string>) {
+  for (const [key, value] of Object.entries(headers)) {
+    res.setHeader(key, value)
   }
 }
 
@@ -32,37 +41,33 @@ export default async function handler(req: any, res: any) {
   const url = new URL(req.url || "/", `https://${req.headers.host || "localhost"}`)
   const origin = req.headers.origin || ""
   const allowOrigin = resolveAllowOrigin(origin)
-  const rawPath = (url.searchParams.get("path") || "").replace(/^\/+/, "")
-  const targetPath = rawPath ? rawPath : ""
+  const requestedHeaders = req.headers["access-control-request-headers"]
 
   if (req.method === "OPTIONS") {
     res.statusCode = 204
-    for (const [key, value] of Object.entries(corsHeaders(allowOrigin))) {
-      res.setHeader(key, value)
-    }
+    applyHeaders(res, corsHeaders(allowOrigin, requestedHeaders))
     res.end()
     return
   }
 
-  if (!targetPath) {
+  const rawPath = (url.searchParams.get("path") || "").replace(/^\/+/, "")
+
+  if (!rawPath) {
     res.statusCode = 400
-    for (const [key, value] of Object.entries(corsHeaders(allowOrigin))) {
-      res.setHeader(key, value)
-    }
-    res.end("请在路径中提供目标 URL\n例如: /https://osu.ppy.sh/api/get_beatmaps?k=&s=114514")
+    applyHeaders(res, corsHeaders(allowOrigin))
+    res.end("请在路径中提供osu!api路径\n例如: /api/v2/me")
     return
   }
 
-  if (!targetPath.startsWith("https://osu.ppy.sh/")) {
+  // 拼接到固定目标域,并防止路径穿越到其他域
+  const targetURL = new URL(rawPath, "https://osu.ppy.sh/")
+  if (targetURL.origin !== "https://osu.ppy.sh") {
     res.statusCode = 400
-    for (const [key, value] of Object.entries(corsHeaders(allowOrigin))) {
-      res.setHeader(key, value)
-    }
-    res.end("请在路径中提供正确的osu!api调用\n例如: /https://osu.ppy.sh/api/get_beatmaps?k=&s=114514")
+    applyHeaders(res, corsHeaders(allowOrigin))
+    res.end("非法的目标路径")
     return
   }
 
-  const targetURL = new URL(targetPath)
   for (const [key, value] of url.searchParams.entries()) {
     if (key !== "path") {
       targetURL.searchParams.set(key, value)
@@ -78,6 +83,7 @@ export default async function handler(req: any, res: any) {
         "origin",
         "referer",
         "connection",
+        "content-length",
         "sec-fetch-mode",
         "sec-fetch-site",
         "sec-fetch-dest",
@@ -94,35 +100,29 @@ export default async function handler(req: any, res: any) {
     headers: requestHeaders,
   }
 
-  if (["POST", "PUT", "PATCH"].includes(req.method)) {
+  if (["POST", "PUT", "PATCH"].includes(req.method || "")) {
     requestInit.body = await readBody(req)
   }
 
   try {
     const response = await fetch(targetURL.toString(), requestInit)
-    const responseHeaders = new Headers()
 
-    for (const [key, value] of response.headers.entries()) {
-      responseHeaders.set(key, value)
-    }
-
-    for (const [key, value] of Object.entries(corsHeaders(allowOrigin))) {
-      responseHeaders.set(key, value)
-    }
-
-    const responseBody = Buffer.from(await response.arrayBuffer())
     res.statusCode = response.status
-    res.statusMessage = response.statusText
-    for (const [key, value] of responseHeaders.entries()) {
+    for (const [key, value] of response.headers.entries()) {
+      const k = key.toLowerCase()
+      // 跳过编码相关头(fetch已解压)和会与CORS冲突的头
+      if (["content-encoding", "content-length", "transfer-encoding"].includes(k)) continue
+      if (k.startsWith("access-control-")) continue
       res.setHeader(key, value)
     }
+    applyHeaders(res, corsHeaders(allowOrigin))
+
+    const responseBody = Buffer.from(await response.arrayBuffer())
     res.end(responseBody)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     res.statusCode = 500
-    for (const [key, value] of Object.entries(corsHeaders(allowOrigin))) {
-      res.setHeader(key, value)
-    }
+    applyHeaders(res, corsHeaders(allowOrigin))
     res.end(`代理错误: ${message}`)
   }
 }
