@@ -50,7 +50,7 @@ export default async function handler(req: any, res: any) {
     return
   }
 
-  const rawPath = (url.searchParams.get("path") || "").replace(/^\/+/, "")
+  const rawPath = (url.searchParams.getAll("path").find(Boolean) || "").replace(/^\/+/, "")
 
   if (!rawPath) {
     res.statusCode = 400
