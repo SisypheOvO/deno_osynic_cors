@@ -1,5 +1,6 @@
 {
   "name": "deno_osynic_cors",
+  "type": "module",
   "private": true,
   "devDependencies": {
     "@types/node": "^26.1.1"
